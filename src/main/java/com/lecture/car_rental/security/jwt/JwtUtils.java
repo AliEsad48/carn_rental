@@ -33,4 +33,9 @@ public class JwtUtils {
                 .signWith(SignatureAlgorithm.HS512, jwtSecret)
                 .compact();
     }
+
+    public String getUserNameFromJwtToken(String token) {
+        return Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(token).getBody().getSubject();
+    }
+
 }
