@@ -1,6 +1,7 @@
 package com.lecture.car_rental.controller;
 
 import com.lecture.car_rental.domain.User;
+import com.lecture.car_rental.dto.AdminDTO;
 import com.lecture.car_rental.dto.UserDTO;
 import com.lecture.car_rental.projection.ProjectUser;
 import com.lecture.car_rental.security.jwt.JwtUtils;
@@ -45,14 +46,14 @@ public class UserController {
 
     @GetMapping("/user/{id}/auth")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<UserDTO> getUserByIdAdmin(@PathVariable Long id){
+    public ResponseEntity<UserDTO> getUserByIdAdmin(@PathVariable Long id) {
         UserDTO user = userService.findById(id);
         return new ResponseEntity<>(user, HttpStatus.OK);
     }
 
     @GetMapping("/user")
     @PreAuthorize("hasRole('CUSTOMER') or hasRole('ADMIN')")
-    public ResponseEntity<UserDTO> getUserById(HttpServletRequest request){
+    public ResponseEntity<UserDTO> getUserById(HttpServletRequest request) {
         Long id = (Long) request.getAttribute("id");
         UserDTO user = userService.findById(id);
 
@@ -70,7 +71,7 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> authenticateUser(@RequestBody Map<String, Object> userMap){
+    public ResponseEntity<Map<String, String>> authenticateUser(@RequestBody Map<String, Object> userMap) {
         String email = (String) userMap.get("email");
         String password = (String) userMap.get("password");
 
@@ -100,7 +101,20 @@ public class UserController {
         return new ResponseEntity<>(map, HttpStatus.OK);
     }
 
+    @PutMapping("/user/{id}/auth")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Boolean>> updateUserAuth(@PathVariable Long id, @Valid @RequestBody AdminDTO adminDTO) {
+
+        userService.updateUserAuth(id, adminDTO);
+
+        Map<String, Boolean> map = new HashMap<>();
+        map.put("success", true);
+        return new ResponseEntity<>(map, HttpStatus.OK);
+
+    }
+
     @PatchMapping("/user/auth")
+    @PreAuthorize("hasRole('CUSTOMER') or hasRole('ADMIN')")
     public ResponseEntity<Map<String, Boolean>> updatePassword(HttpServletRequest request,
                                                                @RequestBody Map<String, Object> userMap) {
 
