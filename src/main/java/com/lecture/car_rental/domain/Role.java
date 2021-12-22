@@ -1,5 +1,6 @@
 package com.lecture.car_rental.domain;
 
+
 import com.lecture.car_rental.domain.enumeration.UserRole;
 import lombok.AllArgsConstructor;
 import lombok.Getter;

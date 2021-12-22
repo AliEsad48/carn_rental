@@ -3,10 +3,12 @@ package com.lecture.car_rental.service;
 import com.lecture.car_rental.domain.Role;
 import com.lecture.car_rental.domain.User;
 import com.lecture.car_rental.domain.enumeration.UserRole;
+import com.lecture.car_rental.dto.UserDTO;
 import com.lecture.car_rental.exception.AuthException;
 import com.lecture.car_rental.exception.BadRequestException;
 import com.lecture.car_rental.exception.ConflictException;
 import com.lecture.car_rental.exception.ResourceNotFoundException;
+import com.lecture.car_rental.projection.ProjectUser;
 import com.lecture.car_rental.repository.RoleRepository;
 import com.lecture.car_rental.repository.UserRepository;
 import lombok.AllArgsConstructor;
@@ -15,6 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -28,51 +31,87 @@ public class UserService {
 
     private final PasswordEncoder passwordEncoder;
 
+    private final static String USER_NOT_FOUND_MSG = "user with id %d not found";
+
+    public List<ProjectUser> fetchAllUsers() {
+        return userRepository.findAllBy();
+    }
+
+    public UserDTO findById(Long id) throws ResourceNotFoundException {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(String.format(USER_NOT_FOUND_MSG, id)));
+
+        UserDTO userDTO = new UserDTO();
+        userDTO.setRoles(user.getRole());
+
+        return new UserDTO(user.getFirstName(), user.getLastName(), user.getPhoneNumber(), user.getEmail(),
+                user.getAddress(), user.getZipCode(), userDTO.getRoles(), user.getBuiltIn());
+    }
+
     public void register(User user) throws BadRequestException {
 
-        if (userRepository.existsByUsername(user.getUsername())) {
-
-            throw new ConflictException("Error: Username is already taken!");
-
-        }
         if (userRepository.existsByEmail(user.getEmail())) {
-
             throw new ConflictException("Error: Email is already in use!");
-
         }
 
         String encodedPassword = passwordEncoder.encode(user.getPassword());
 
-        user.setAddress(encodedPassword);
+        user.setPassword(encodedPassword);
+        user.setBuiltIn(false);
 
         Set<Role> roles = new HashSet<>();
-
-        Role customerRole = roleRepository.findByName(UserRole.ROLE_CUSTOMER).
-                orElseThrow(() -> new ResourceNotFoundException("Error: Role is not found"));
-
+        Role customerRole = roleRepository.findByName(UserRole.ROLE_CUSTOMER)
+                .orElseThrow(() -> new ResourceNotFoundException("Error: Role is not found."));
         roles.add(customerRole);
 
         user.setRoles(roles);
         userRepository.save(user);
     }
 
-    public void login(String username, String password) throws AuthException {
-
+    public void login(String email, String password) throws AuthException {
         try {
+            Optional<User> user = userRepository.findByEmail(email);
 
-            Optional<User> user = userRepository.findByUsername(username);
-
-            if (!BCrypt.checkpw(password, user.get().getPassword())) {
-
-                throw new AuthException("Invalid credentials");
-
-            }
-
+            if (!BCrypt.checkpw(password, user.get().getPassword()))
+                throw new AuthException("invalid credentials");
         } catch (Exception e) {
+            throw new AuthException("invalid credentials");
+        }
+    }
 
-            throw new AuthException("Invalid credentials");
+    public void updateUser(Long id, UserDTO userDTO) throws BadRequestException {
 
+        boolean emailExists = userRepository.existsByEmail(userDTO.getEmail());
+        Optional<User> userDetails = userRepository.findById(id);
+
+        if (userDetails.get().getBuiltIn()) {
+            throw new BadRequestException("You dont have permission to update user info!");
         }
 
+        if (emailExists && !userDTO.getEmail().equals(userDetails.get().getEmail())) {
+            throw new ConflictException("Error: Email is already in use!");
+        }
+
+        userRepository.update(id, userDTO.getFirstName(), userDTO.getLastName(), userDTO.getPhoneNumber(),
+                userDTO.getEmail(), userDTO.getAddress(), userDTO.getZipCode());
+
+    }
+
+    public void updatePassword(Long id, String newPassword, String oldPassword) throws BadRequestException {
+
+        Optional<User> user = userRepository.findById(id);
+
+        if (user.get().getBuiltIn()) {
+            throw new BadRequestException("You dont have permission to update password!");
+        }
+
+        if (!BCrypt.hashpw(oldPassword, user.get().getPassword()).equals(user.get().getPassword()))
+            throw new BadRequestException("password does not match");
+
+        String hashedPassword =  passwordEncoder.encode(newPassword);
+        user.get().setPassword(hashedPassword);
+
+        userRepository.save(user.get());
     }
 }
+
