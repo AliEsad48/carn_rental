@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-@Transactional(readOnly = true)
+@Transactional
 public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByEmail(String email) throws ResourceNotFoundException;
@@ -24,7 +24,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     List<ProjectUser> findAllBy();
 
-    @Transactional
     @Modifying
     @Query("UPDATE User u " +
             "SET u.firstName = ?2, u.lastName = ?3, u.phoneNumber = ?4, u.email = ?5, u.address = ?6, " +
